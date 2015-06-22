@@ -380,7 +380,7 @@ local _M=function(args)
 					end
 				end
 			elseif self.button then
-				if not gui.pick_node(button.button, action.x, action.y) then
+				if not gui.pick_node(self.button.button, action.x, action.y) then
 					button_blur(self, self.button)
 				else
 					button_over(self, self.button)					
