@@ -1,5 +1,3 @@
-local helper=require("general.helper")
-
 local _M=function(args)
 	
 	if not args then
@@ -7,6 +5,18 @@ local _M=function(args)
 	end
 	if not args.click_sound then
 		args.click_sound="main:/sounds#menu_click"		
+	end
+	if not args.default_button then
+		args.default_button="button-9"
+	end
+	if not args.default_button_pressed then
+		args.default_button_pressed="button-9_pressed"
+	end
+	if not args.default_button_disabled then
+		args.default_button_disabled="button-9_disabled"
+	end
+	if not args.default_button_checked then
+		args.default_button_checked="button-9_checked"
 	end
 	local _P={
 		textboxes={},
@@ -100,9 +110,9 @@ local _M=function(args)
 			button_image=button_image,
 			button_image_pos=button_image_position,
 			name=name,
-			texture=button_texture or "button-9",
-			pressed_texture=button_pressed_texture or "button-9_pressed",
-			disabled_texture=button_disabled_texture or "button-9_disabled",
+			texture=button_texture or args.default_button,
+			pressed_texture=button_pressed_texture or args.default_button_pressed,
+			disabled_texture=button_disabled_texture or args.default_button_disabled,
 			enabled=true
 		}
 	end
@@ -139,9 +149,9 @@ local _M=function(args)
 			box=gui.get_node(name.."_box"),
 			button=gui.get_node(name.."_button"),
 			value=initial_value,
-			texture=texture or "button_small-9",
-			pressed_texture=pressed_texture or "button_small-9_pressed",
-			checked_texture=checked_texture or "button_checked"
+			texture=texture or args.default_button,
+			pressed_texture=pressed_texture or args.default_button_pressed,
+			checked_texture=checked_texture or args.default_button_checked
 		}
 		_P.register_button(self, name, _P.checkboxes[name].texture, _P.checkboxes[name].pressed_texture)
 		update_checkbox(self, name)
@@ -327,7 +337,7 @@ local _M=function(args)
 				end
 				gui.hide_keyboard()
 				for i, box in pairs(_P.textboxes) do
-					if helper.is_over(self, action, box.box) then
+					if gui.pick_node(box.box, action.x, action.y) then
 						msg.post(args.click_sound, "play_sound")
 						self.selected_textbox=box.name
 						msg.post(_P.url, "textbox_selected", {textbox=box.name})
@@ -336,7 +346,7 @@ local _M=function(args)
 						return true
 					end
 				end
-				if self.button and helper.is_over(self, action, self.button.button) then
+				if self.button and gui.pick_node(self.button.button, action.x, action.y) then
 					msg.post(args.click_sound, "play_sound")
 					button_blur(self, self.button)		
 					if _P.checkboxes[self.button.name]~=nil then
@@ -352,7 +362,7 @@ local _M=function(args)
 				for i,list in pairs(_P.lists) do
 					if list.selectable then
 						for j, row in pairs(list.rows) do
-							if helper.is_over(self, action, row.row) and list.selected_row~=row then
+							if gui.pick_node(row.row, action.x, action.y) and list.selected_row~=row then
 								list.selected_row=row
 								msg.post(args.click_sound, "play_sound")
 								msg.post(_P.url, "list_row_selected", {list=list.name, row=row.data[list.data_property]})
@@ -363,14 +373,14 @@ local _M=function(args)
 				end
 			elseif action.pressed then
 				for i, button in pairs(_P.buttons) do
-					if helper.is_over(self, action, button.button) and button.enabled then
+					if gui.pick_node(button.button, action.x, action.y) and button.enabled then
 						button_over(self, button)
 						self.button=button
 						return true
 					end
 				end
 			elseif self.button then
-				if not helper.is_over(self, action, self.button.button) then
+				if not gui.pick_node(button.button, action.x, action.y) then
 					button_blur(self, self.button)
 				else
 					button_over(self, self.button)					
