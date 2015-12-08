@@ -23,6 +23,7 @@ local _M=function(args)
 		buttons={},
 		alerts={},
 		checkboxes={},
+		radio_buttons={},
 		lists={},
 		windows={},
 		url=msg.url(),
@@ -56,6 +57,13 @@ local _M=function(args)
 			end
 		end
 		list.last_selected_row=list.selected_row
+	end
+	
+	local function update_radio_group(self, radio_group)
+		local group=_P.radio_buttons[radio_group]
+		for n,r in pairs(group) do
+			gui.play_flipbook(r.button, r.texture)
+		end	
 	end
 	
 	local function button_over(self, button)
@@ -116,17 +124,7 @@ local _M=function(args)
 			enabled=true
 		}
 	end
-	
-	function _P.set_button_enabled(self, name, enabled)
-		local button=_P.buttons[button]
-		if enabled then
-			gui.play_flipbook(button.button, button.texture)		
-		else
-			gui.play_flipbook(button.button, button.disabled_texture)
-		end
-		button.enabled=enabled
-	end
-	
+		
 	function _P.register_alert(self, name)
 		local alert=gui.get_node(name.."_box")
 		local alert_text=gui.get_node(name.."_text")
@@ -157,8 +155,37 @@ local _M=function(args)
 		update_checkbox(self, name)
 	end
 	
-	function _P.register_list(self, name, data_property, selectable, add_row_function)
-		if add_row_function==nil then
+	function _P.register_radio_button(self, name, radio_group, off_texture, on_texture, pressed_texture)
+		if _P.radio_buttons[radio_group]==nil then
+			_P.radio_buttons[radio_group]={}
+		end
+		_P.radio_buttons[radio_group][name]={
+			button=gui.get_node(name.."_button"),
+			value=initial_value,
+			texture=off_texture or "button_small-9",
+			off_texture=off_texture or "button_small-9",
+			pressed_texture=pressed_texture or on_texture or "button_small-9_pressed",
+			on_texture=on_texture or "button_checked",
+			group=radio_group	
+		}
+		_P.register_button(self, name, _P.radio_buttons[radio_group][name].off_texture, _P.radio_buttons[radio_group][name].on_texture)		
+		update_radio_group(self, radio_group)
+	end 
+	
+	function _P.set_radio_button_value(self, radio_group, name)
+		local group=_P.radio_buttons[radio_group]
+		local button=group[name]
+		for n,r in pairs(group) do
+			r.texture=r.off_texture
+		end
+		button.texture=button.on_texture
+		update_radio_group(self, radio_group)
+		msg.post(_P.url, "radio_button_value_changed", {button=name, group=radio_group})
+	end
+	
+	function _P.register_list(self, name, data_property, selectable, add_row_function, container_height)
+		if type(selectable)=="function" then
+			container_height=add_row_function
 			add_row_function=selectable
 			selectable=true
 		end
@@ -169,7 +196,9 @@ local _M=function(args)
 			add_row_function = add_row_function,
 			next_row_pos=vmath.vector3(),
 			rows={},
-			selectable=selectable
+			selectable=selectable,
+			position=gui.get_position(gui.get_node(name.."_list")),
+			container_height=container_height or 0
 		}
 	end
 	
@@ -203,6 +232,9 @@ local _M=function(args)
 			row=row,
 			data=data
 		}
+		local size=gui.get_size(list.list)
+		size.y=-list.next_row_pos.y
+		gui.set_size(list.list, size)
 	end
 	
 	function _P.remove_list_row(self, list_name, data_name)
@@ -288,19 +320,30 @@ local _M=function(args)
 		end
 	end
 
-	function _P.set_button_image(self, button, image)
-		local button=_P.buttons[button]
+	function _P.set_button_enabled(self, name, enabled)
+		local button=_P.buttons[name]
+		if enabled then
+			gui.play_flipbook(button.button, button.texture)		
+		else
+			gui.play_flipbook(button.button, button.disabled_texture)
+		end
+		button.enabled=enabled
+	end
+	
+
+	function _P.set_button_image(self, name, image)
+		local button=_P.buttons[name]
 		gui.play_flipbook(button.button_image, image)
 	end
 	
-	function _P.set_button_text(self, button, text)
-		local button=_P.buttons[button]
+	function _P.set_button_text(self, name, text)
+		local button=_P.buttons[name]
 		gui.set_text(button.button_text, text)
 	end
 	
-	function _P.adjust_button_image_to_text(self, button, margin)
+	function _P.adjust_button_image_to_text(self, name, margin)
 		if margin==nil then margin=10 end
-		local button=_P.buttons[button]
+		local button=_P.buttons[name]
 		local metrics=gui.get_text_metrics_from_node(button.button_text)
 		local pivot=gui.get_pivot(button.button_text)
 		local pos=gui.get_position(button.button_text)
@@ -331,14 +374,23 @@ local _M=function(args)
 	function _P.on_input(self, action_id, action)
 		if action_id==hash("mouse") then
 			if action.released then
+				if self.scrolling and self.scrolling.scrolled then
+					self.scrolling=false
+					return true
+				end
+				self.scrolling=false
 				if self.selected_textbox then
 					update_text(self, self.selected_textbox, "")
 					selected_textbox=nil
 				end
-				gui.hide_keyboard()
+				if not (args.disable_autohide_android and sys.get_sys_info().system_name=="Android") then
+					gui.hide_keyboard()
+				end
 				for i, box in pairs(_P.textboxes) do
 					if gui.pick_node(box.box, action.x, action.y) then
-						msg.post(args.click_sound, "play_sound")
+						if args.click_sound then
+							pcall(msg.post, args.click_sound, "play_sound")
+						end
 						self.selected_textbox=box.name
 						msg.post(_P.url, "textbox_selected", {textbox=box.name})
 						gui.show_keyboard(box.keyboard or gui.KEYBOARD_TYPE_DEFAULT, false)
@@ -347,12 +399,20 @@ local _M=function(args)
 					end
 				end
 				if self.button and gui.pick_node(self.button.button, action.x, action.y) then
-					msg.post(args.click_sound, "play_sound")
+					if args.click_sound then
+						pcall(msg.post, args.click_sound, "play_sound")
+					end
 					button_blur(self, self.button)		
 					if _P.checkboxes[self.button.name]~=nil then
 						_P.checkboxes[self.button.name].value=not _P.checkboxes[self.button.name].value
 						update_checkbox(self, self.button.name)
-					end					
+					end
+					for i, group in pairs(_P.radio_buttons) do
+						if group[self.button.name]~=nil then
+							_P.set_radio_button_value(self, i, self.button.name)
+							msg.post(_P.url, "radio_button_clicked", {button=self.button.name, group=i})
+						end
+					end
 					msg.post(_P.url, "button_clicked", {button=self.button.name})
 					return true
 				end
@@ -364,7 +424,9 @@ local _M=function(args)
 						for j, row in pairs(list.rows) do
 							if gui.pick_node(row.row, action.x, action.y) and list.selected_row~=row then
 								list.selected_row=row
-								msg.post(args.click_sound, "play_sound")
+								if args.click_sound then
+									msg.post(args.click_sound, "play_sound")
+								end
 								msg.post(_P.url, "list_row_selected", {list=list.name, row=row.data[list.data_property]})
 							end
 						end
@@ -372,6 +434,17 @@ local _M=function(args)
 					end
 				end
 			elseif action.pressed then
+				for i, list in pairs(_P.lists) do
+					if list.container_height>0 and gui.pick_node(list.list, action.x, action.y) then
+						if list.container_height<math.abs(list.next_row_pos.y) then
+							self.scrolling={
+								list=list,
+								start_action=action,
+								position=gui.get_position(list.list)
+							}
+						end
+					end
+				end
 				for i, button in pairs(_P.buttons) do
 					if gui.pick_node(button.button, action.x, action.y) and button.enabled then
 						button_over(self, button)
@@ -386,6 +459,17 @@ local _M=function(args)
 					button_over(self, self.button)					
 				end
 				return true
+			elseif self.scrolling then
+				local dy=action.y-self.scrolling.start_action.y
+				local new_pos=self.scrolling.position+vmath.vector3(0,dy,0)
+				local size=gui.get_size(self.scrolling.list.list)
+				
+				if new_pos.y<self.scrolling.list.position.y then new_pos.y=self.scrolling.list.position.y end
+				if size.y-new_pos.y<self.scrolling.list.container_height then
+					new_pos.y=size.y-self.scrolling.list.container_height
+				end
+				gui.set_position(self.scrolling.list.list, new_pos)
+				if math.abs(dy)>5 then self.scrolling.scrolled=true end
 			end
 		elseif action_id==hash("text") and self.selected_textbox then
 			_P.textboxes[self.selected_textbox].text=_P.textboxes[self.selected_textbox].text..action.text
@@ -394,6 +478,8 @@ local _M=function(args)
 			box=_P.textboxes[self.selected_textbox]
 			box.text=string.sub(box.text,1,-2)
 			update_text(self, self.selected_textbox, "_")
+		elseif action_id==hash("enter") and action.released and sys.get_sys_info().system_name=="Android" then
+			gui.hide_keyboard()		
 		end
 	end
 	
