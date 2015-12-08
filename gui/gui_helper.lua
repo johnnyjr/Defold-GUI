@@ -482,7 +482,57 @@ local _M=function(args)
 			gui.hide_keyboard()		
 		end
 	end
+
+	_P.entry_animation=function(self, node, type, delay)
+		if not type then type="scale" end
+		if not delay then delay=0.5 end
+		
+		if type=="scale" then
+			local start_scale=vmath.vector3()
+			local end_scale=gui.get_scale(node)
+			gui.set_scale(node,start_scale)
+			gui.animate(node, "scale", end_scale, gui.EASING_OUTBOUNCE, 0.5, delay)	
+		elseif type=="slide_left" then
+			local end_pos=gui.get_position(node)
+			local start_pos=vmath.vector3(-200, end_pos.y, end_pos.z)
+			gui.set_position(node,start_pos)
+			gui.animate(node, "position", end_pos, gui.EASING_OUTBOUNCE, 0.5, delay)				
+		elseif type=="slide_right" then
+			local end_pos=gui.get_position(node)
+			local start_pos=vmath.vector3(520, end_pos.y, end_pos.z)
+			gui.set_position(node,start_pos)
+			gui.animate(node, "position", end_pos, gui.EASING_OUTBOUNCE, 0.5, delay)				
+		elseif type=="slide_down" then
+			local end_pos=gui.get_position(node)
+			local start_pos=vmath.vector3(end_pos.x, args.global.window.height+200, end_pos.z)
+			gui.set_position(node,start_pos)
+			gui.animate(node, "position", end_pos, gui.EASING_OUTBOUNCE, 0.5, delay)				
+		elseif type=="slide_up" then
+			local end_pos=gui.get_position(node)
+			local start_pos=vmath.vector3(end_pos.x, -200, end_pos.z)
+			gui.set_position(node,start_pos)
+			gui.animate(node, "position", end_pos, gui.EASING_OUTBOUNCE, 0.5, delay)				
+		end
+	end
 	
+	_P.exit_animation=function(self, node, type, delay)
+		if not type then type="scale" end
+		if not delay then delay=0 end
+		
+		if type=="scale" then
+			local end_scale=vmath.vector3()
+			gui.animate(node, "scale", end_scale, gui.EASING_INBOUNCE, 0.5, delay)	
+		elseif type=="slide_left" then
+			local pos=gui.get_position(node)
+			pos.x=-200
+			gui.animate(node, "position", pos, gui.EASING_INBOUNCE, 0.5, delay)				
+		elseif type=="slide_right" then
+			local pos=gui.get_position(node)
+			pos.x=520
+			gui.animate(node, "position", pos, gui.EASING_INBOUNCE, 0.5, delay)				
+		end
+	end
+		
 	return _P
 end
 
